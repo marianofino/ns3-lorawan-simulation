@@ -1,0 +1,21 @@
+scenarios: # scenarios to be created
+  dir: './scenarios' # the path to the folder with JSON scenario sepcifications (if it doesn't exist it will create one)
+  qty: 20
+  gateways:
+    qty: 4 # number of gateways in each scenario
+  devices:
+    minQty: 10 # min number of devices in each scenario
+    maxQty: 2000 # max number of devices in each scenario
+simulations: # for each scenario, run the following simulations
+  defaultValues:
+    msgPeriod: 20 # minutes
+    msgSize: 10 # payload
+    priorityLvl: 5
+  instances:
+    - trafficShapingPolicy: 'none'
+    - trafficShapingPolicy: 'byNodeId'
+    - trafficShapingPolicy: 'byNodePrioriy'
+    - trafficShapingPolicy: 'byMaxPackets'
+    - trafficShapingPolicy: 'byBudget'
+ns3:
+  wafDir: ../ns3/ns-3-allinone/ns-3-dev

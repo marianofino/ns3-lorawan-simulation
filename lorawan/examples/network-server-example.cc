@@ -1,6 +1,7 @@
 /*
- * This example is based on the network-server-example provided by the NS3
- * LoRaWAN module.
+ * This example creates a simple network in which all LoRaWAN components are
+ * simulated: End Devices, some Gateways and a Network Server.
+ * Two end devices are already configured to send unconfirmed and confirmed messages respectively.
  */
 
 #include "ns3/point-to-point-module.h"
@@ -22,40 +23,10 @@
 #include "ns3/lora-device-address-generator.h"
 #include "ns3/one-shot-sender-helper.h"
 
-#include <iostream>
-#include <fstream>
-#include <vector>
-#include <sstream>
-#include <string>
-
-#define LENGTH 10000
-
 using namespace ns3;
 using namespace lorawan;
-using namespace std;
-
-int duplicatedRxByNS = 0;
-int nonDuplicatedRxByNS = 0;
-int bytesRxByNS = 0;
-int64_t packetsUID[LENGTH] = {0};
-int arrayLength = 0;
 
 NS_LOG_COMPONENT_DEFINE ("NetworkServerExample");
-
-void OnNSReceivedPackets (Ptr<Packet const> packet)
-{
-  int64_t packetUid = (int64_t)packet->GetUid();
-
-  int64_t *uidPosition = std::find(std::begin(packetsUID), std::end(packetsUID), packetUid);
-  if (uidPosition != std::end(packetsUID)) {
-    duplicatedRxByNS++;
-  } else {
-    nonDuplicatedRxByNS++;
-    bytesRxByNS += packet->GetSize();
-    packetsUID[arrayLength++] = packetUid;
-  }
-
-}
 
 int main (int argc, char *argv[])
 {
@@ -66,15 +37,28 @@ int main (int argc, char *argv[])
   cmd.AddValue ("verbose", "Whether to print output or not", verbose);
   cmd.Parse (argc, argv);
 
-  //ns3::Packet::EnablePrinting();
-
-  for (int i=0; i < LENGTH; i++) {
-    packetsUID[i] = -1;
-  }
-
   // Logging
   //////////
 
+  LogComponentEnable ("NetworkServerExample", LOG_LEVEL_ALL);
+  LogComponentEnable ("NetworkServer", LOG_LEVEL_ALL);
+  LogComponentEnable ("GatewayLorawanMac", LOG_LEVEL_ALL);
+  // LogComponentEnable("LoraFrameHeader", LOG_LEVEL_ALL);
+  // LogComponentEnable("LorawanMacHeader", LOG_LEVEL_ALL);
+  // LogComponentEnable("MacCommand", LOG_LEVEL_ALL);
+  // LogComponentEnable("GatewayLoraPhy", LOG_LEVEL_ALL);
+  // LogComponentEnable("LoraPhy", LOG_LEVEL_ALL);
+  // LogComponentEnable("LoraChannel", LOG_LEVEL_ALL);
+  // LogComponentEnable("EndDeviceLoraPhy", LOG_LEVEL_ALL);
+  // LogComponentEnable("LogicalLoraChannelHelper", LOG_LEVEL_ALL);
+  LogComponentEnable ("EndDeviceLorawanMac", LOG_LEVEL_ALL);
+  LogComponentEnable ("ClassAEndDeviceLorawanMac", LOG_LEVEL_ALL);
+  // LogComponentEnable ("OneShotSender", LOG_LEVEL_ALL);
+  // LogComponentEnable("PointToPointNetDevice", LOG_LEVEL_ALL);
+  // LogComponentEnable ("Forwarder", LOG_LEVEL_ALL);
+  // LogComponentEnable ("OneShotSender", LOG_LEVEL_ALL);
+  // LogComponentEnable ("DeviceStatus", LOG_LEVEL_ALL);
+  // LogComponentEnable ("GatewayStatus", LOG_LEVEL_ALL);
   LogComponentEnableAll (LOG_PREFIX_FUNC);
   LogComponentEnableAll (LOG_PREFIX_NODE);
   LogComponentEnableAll (LOG_PREFIX_TIME);
@@ -96,50 +80,16 @@ int main (int argc, char *argv[])
   // End Device mobility
   MobilityHelper mobilityEd, mobilityGw;
   Ptr<ListPositionAllocator> positionAllocEd = CreateObject<ListPositionAllocator> ();
-
-  ifstream end_device_csv_file("end_device_data.csv");
-
-  string line, word;
-  vector<string> row;
-
-  if (end_device_csv_file.is_open())
-  {
-    while ( getline (end_device_csv_file, line) )
-    {
-      row.clear();
-      stringstream s(line);
-      while (getline(s, word, ','))
-      {
-        row.push_back(word);
-      }
-      positionAllocEd->Add (Vector (stof(row[0]), stof(row[1]), stof(row[2])));
-    }
-    end_device_csv_file.close();
-  }
-
+  positionAllocEd->Add (Vector (6000.0, 0.0, 0.0));
+  positionAllocEd->Add (Vector (0.0, 100.0, 0.0));
   mobilityEd.SetPositionAllocator (positionAllocEd);
   mobilityEd.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
 
   // Gateway mobility
   Ptr<ListPositionAllocator> positionAllocGw = CreateObject<ListPositionAllocator> ();
-
-  ifstream gateway_data_csv_file("gateway_data.csv");
-
-  if (gateway_data_csv_file.is_open())
-  {
-    while ( getline (gateway_data_csv_file, line) )
-    {
-      row.clear();
-      stringstream s(line);
-      while (getline(s, word, ','))
-      {
-        row.push_back(word);
-      }
-      positionAllocGw->Add (Vector (stof(row[0]), stof(row[1]), stof(row[2])));
-    }
-    gateway_data_csv_file.close();
-  }
-
+  positionAllocGw->Add (Vector (0.0, 0.0, 0.0));
+  positionAllocGw->Add (Vector (-2000.0, 0.0, 0.0));
+  positionAllocGw->Add (Vector (500.0, 0.0, 0.0));
   mobilityGw.SetPositionAllocator (positionAllocGw);
   mobilityGw.SetMobilityModel ("ns3::ConstantPositionMobilityModel");
 
@@ -157,11 +107,11 @@ int main (int argc, char *argv[])
   /////////////
 
   NodeContainer endDevices;
-  endDevices.Create (117);
+  endDevices.Create (2);
   mobilityEd.Install (endDevices);
 
   // Create a LoraDeviceAddressGenerator
-  uint8_t nwkId = 0;
+  uint8_t nwkId = 54;
   uint32_t nwkAddr = 1864;
   Ptr<LoraDeviceAddressGenerator> addrGen = CreateObject<LoraDeviceAddressGenerator> (nwkId,nwkAddr);
 
@@ -172,17 +122,29 @@ int main (int argc, char *argv[])
   macHelper.SetRegion (LorawanMacHelper::EU);
   helper.Install (phyHelper, macHelper, endDevices);
 
-  int appPeriodSeconds = 20*60;      // One packet every 20 minutes
-  PeriodicSenderHelper appHelper = PeriodicSenderHelper ();
-  appHelper.SetPeriod (Seconds (appPeriodSeconds));
-  ApplicationContainer appContainer = appHelper.Install (endDevices);
+  // Set message type (Default is unconfirmed)
+  Ptr<LorawanMac> edMac1 = endDevices.Get (1)->GetDevice (0)->GetObject<LoraNetDevice> ()->GetMac ();
+  Ptr<ClassAEndDeviceLorawanMac> edLorawanMac1 = edMac1->GetObject<ClassAEndDeviceLorawanMac> ();
+  edLorawanMac1->SetMType (LorawanMacHeader::CONFIRMED_DATA_UP);
+
+
+  // Install applications in EDs
+  OneShotSenderHelper oneShotHelper = OneShotSenderHelper ();
+  oneShotHelper.SetSendTime (Seconds (4));
+  oneShotHelper.Install (endDevices.Get (0));
+  oneShotHelper.SetSendTime (Seconds (10));
+  oneShotHelper.Install (endDevices.Get (1));
+  // oneShotHelper.SetSendTime (Seconds (8));
+  // oneShotHelper.Install(endDevices.Get (1));
+  // oneShotHelper.SetSendTime (Seconds (12));
+  // oneShotHelper.Install(endDevices.Get (2));
 
   ////////////////
   // Create GWs //
   ////////////////
 
   NodeContainer gateways;
-  gateways.Create (3);
+  gateways.Create (1);
   mobilityGw.Install (gateways);
 
   // Create the LoraNetDevices of the gateways
@@ -206,22 +168,13 @@ int main (int argc, char *argv[])
   networkServerHelper.SetEndDevices (endDevices);
   networkServerHelper.Install (networkServers);
 
-  for (NodeContainer::Iterator j = networkServers.Begin (); j != networkServers.End (); ++j)
-  {
-    Ptr<Node> node = *j;
-    Ptr<NetworkServer> nwServer = node->GetApplication(0)->GetObject<NetworkServer> ();
-    nwServer->TraceConnectWithoutContext("ReceivedPacket", MakeCallback(&OnNSReceivedPackets));
-  }
-
   // Install the Forwarder application on the gateways
   ForwarderHelper forwarderHelper;
   forwarderHelper.Install (gateways);
 
   // Start simulation
-  Simulator::Stop (Seconds (60*60*24));
+  Simulator::Stop (Seconds (800));
   Simulator::Run ();
-  std::cout << "Duplicated Packets rx by NS: " << duplicatedRxByNS << std::endl;
-  std::cout << "Non-Duplicated Packets rx by NS: " << nonDuplicatedRxByNS << std::endl;
   Simulator::Destroy ();
 
   return 0;

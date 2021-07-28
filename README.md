@@ -1,7 +1,6 @@
 # Node Aware LoRaWAN simulation
 
-## Usage
+There are 2 projects in this repo:
 
-1. Copy the file `node-aware-sim.cc` to the `scratch` directory of your ns3 installation.
-2. Copy the CSV files (the example ones provided here or your own ones) to the directory where **waf** is executed (usually `ns3-dev`).
-3. Run `./waf --run node-aware-sim` or `./waf --run node-aware-sim --vis` for PyViz.
+* In the `lorawan` directory it can be found the module to run NA-Gateway simulations with NS3.
+* In the `na-lorawan-simulator` directory it can be found a wrapper to configure and run NA-Gateway simulations.
